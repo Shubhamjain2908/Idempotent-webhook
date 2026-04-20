@@ -1,3 +1,8 @@
 spring:
   application:
     name: webhook
+  datasource:
+    url: jdbc:postgresql://localhost:5432/webhook_db
+    username: webhook_user
+    password: webhook_password
+    driver-class-name: org.postgresql.Driver
