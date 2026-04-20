@@ -82,6 +82,9 @@ Integration tests use **Testcontainers** to spin up real PostgreSQL and Redis co
 ./gradlew test
 ```
 
+### Chaos testing simulates mid-flight server crashes to verify that the system recovers gracefully without processing duplicates or losing data.
+`make chaos-test` 
+
 ## Load Test Results
 
 Load testing was performed using **k6** against a local Docker environment, running two simultaneous scenarios: High-throughput unique traffic, and 50 concurrent virtual users violently spamming the exact same idempotency key to test race condition deflection.
@@ -93,11 +96,5 @@ Load testing was performed using **k6** against a local Docker environment, runn
 | **P95 Latency** | `56.88 ms` | Complete processing including Outbox and DB inserts. |
 | **Duplicate Processing** | `0%` | Verified by strict Testcontainers E2E assertions. |
 | **DLQ Capture Rate** | `100%` | Terminal failures captured securely without transaction rollbacks. |
-
-## Deploy to Railway
-
-Deploy the full stack (Spring Boot + Postgres + Redis) to Railway in one click:
-
-[](https://www.google.com/search?q=https://railway.app/new)
 
 -----
