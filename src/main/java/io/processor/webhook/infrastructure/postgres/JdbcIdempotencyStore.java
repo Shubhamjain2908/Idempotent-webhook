@@ -5,6 +5,7 @@ import io.processor.webhook.domain.model.ProcessedEvent;
 import io.processor.webhook.domain.ports.IdempotencyStore;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -47,7 +48,7 @@ public class JdbcIdempotencyStore implements IdempotencyStore {
         .param("hash", event.getPayloadHash())
         .param("status", event.getStatus().name())
         .param("json", event.getResultJson())
-        .param("expires", event.getExpiresAt())
+        .param("expires", Timestamp.from(event.getExpiresAt()))
         .update();
   }
 
