@@ -24,11 +24,8 @@ class IdempotencyGuardRaceConditionTest {
     int concurrentRequests = 50;
     ExecutorService executor = Executors.newFixedThreadPool(concurrentRequests);
 
-    // This latch acts as a starting gun. All threads will wait for it to reach 0.
     CountDownLatch startGun = new CountDownLatch(1);
     CountDownLatch finishLine = new CountDownLatch(concurrentRequests);
-
-    // We use an AtomicInteger to safely count how many times the business logic actually runs
     AtomicInteger timesProcessed = new AtomicInteger(0);
 
     String sharedIdempotencyKey = "race-condition-key-123";
@@ -36,41 +33,45 @@ class IdempotencyGuardRaceConditionTest {
     for (int i = 0; i < concurrentRequests; i++) {
       executor.submit(() -> {
         try {
-          startGun.await(); // Threads block here, waiting for the gun
+          startGun.await();
 
           idempotencyGuard.protect(
               sharedIdempotencyKey,
               "hash123",
               () -> {
-                // THIS IS THE BUSINESS LOGIC
+                // 1. ADD A DELAY: Simulate a slow external API call.
+                // This ensures Thread 1 holds the lock long enough for
+                // Threads 2-50 to crash into the locked door.
+                try { Thread.sleep(50); } catch (InterruptedException e) {}
+
                 timesProcessed.incrementAndGet();
                 return ProcessedEvent.builder()
                     .idempotencyKey(sharedIdempotencyKey)
                     .payloadHash("hash123")
                     .status(EventStatus.COMPLETED)
+                    // 2. FIX THE DB CRASH: Provide an actual JSON string
+                    .resultJson("{\"message\": \"success\"}")
                     .expiresAt(Instant.now().plusSeconds(3600))
                     .build();
               }
           );
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
+        } catch (Exception e) {
+          // 3. STOP SWALLOWING EXCEPTIONS!
+          // Print out what is actually killing the threads.
+          // You SHOULD see 49 "ConcurrentWebhookException"s in your console.
+          System.out.println("Thread failed: " + e.getMessage());
         } finally {
           finishLine.countDown();
         }
       });
     }
 
-    // FIRE! All 50 threads hit the IdempotencyGuard at the exact same moment
     startGun.countDown();
-
-    // Wait for all threads to finish
     finishLine.await();
 
-    // THE MOMENT OF TRUTH
     System.out.println("Expected executions: 1");
     System.out.println("Actual executions: " + timesProcessed.get());
 
-    // This assertion WILL FAIL. You will see timesProcessed is likely 5, 10, or even 50.
     assertThat(timesProcessed.get()).isEqualTo(1);
   }
 }
