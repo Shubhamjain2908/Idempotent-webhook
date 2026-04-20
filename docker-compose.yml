@@ -16,6 +16,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # The standalone migration runner
+  flyway:
+    image: flyway/flyway:10-alpine
+    container_name: webhook-flyway
+    command: -url=jdbc:postgresql://postgres:5432/webhook_db -user=webhook_user -password=webhook_password migrate
+    volumes:
+      # Mounts the local Spring Boot migration folder into the container
+      - ./src/main/resources/db/migration:/flyway/sql
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   redis:
     image: redis:7-alpine
     container_name: webhook-redis
