@@ -41,6 +41,11 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testCompileOnly 'org.projectlombok:lombok:1.18.44'
 	testAnnotationProcessor 'org.projectlombok:lombok:1.18.44'
+
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+	testImplementation 'org.testcontainers:postgresql:1.21.4'
+	testImplementation 'org.testcontainers:testcontainers:1.21.4'
 }
 
 tasks.named('test') {
