@@ -1,10 +1,18 @@
 package io.processor.webhook.api;
 
+import io.processor.webhook.domain.model.EventStatus;
+import io.processor.webhook.domain.model.ProcessedEvent;
+import io.processor.webhook.exception.ConcurrentWebhookException;
+import io.processor.webhook.service.EventProcessor;
 import io.processor.webhook.service.IdempotencyGuard;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class WebhookController {
 
   private final IdempotencyGuard idempotencyGuard;
+  private final EventProcessor eventProcessor;
 
   @PostMapping("/{eventType}")
   public ResponseEntity<String> receive(
@@ -36,7 +45,18 @@ public class WebhookController {
       var result = idempotencyGuard.protect(
           idempotencyKey, String.valueOf(payload.hashCode()), () -> {
             log.info("Executing core business logic");
-            return null; // Replace with actual ProcessedEvent creation
+            // 1. Call the real processor! This writes to the outbox via Phase 5 logic.
+            eventProcessor.processAndEmit(idempotencyKey, eventType, payload);
+
+            // 2. Return the actual object instead of null
+            return ProcessedEvent.builder()
+                .idempotencyKey(idempotencyKey)
+                .payloadHash(String.valueOf(payload.hashCode()))
+                .status(EventStatus.COMPLETED)
+                .resultJson("{\"message\": \"success\"}")
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plus(24, ChronoUnit.HOURS))
+                .build();
           }
       );
       log.info("Core business logic executed successfully: {}", result);
@@ -46,5 +66,13 @@ public class WebhookController {
       // the next request handled by this thread will have the wrong ID!
       MDC.clear();
     }
+  }
+
+  // 3. Map the concurrency exception to HTTP 409 Conflict
+  @ExceptionHandler(ConcurrentWebhookException.class)
+  public ResponseEntity<String> handleConcurrentWebhook(ConcurrentWebhookException e) {
+    // We log at DEBUG or INFO level, not ERROR, because this is expected behavior under load!
+    log.info("Rejected duplicate request: {}", e.getMessage());
+    return ResponseEntity.status(HttpStatus.CONFLICT).body("Webhook is currently being processed.");
   }
 }
