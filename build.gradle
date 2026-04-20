@@ -20,12 +20,12 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
-	implementation 'org.postgresql:postgresql:42.7.1'
+	implementation 'org.postgresql:postgresql:42.7.10'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	// Core retry functionality
-	implementation 'org.springframework.retry:spring-retry'
-	// Required for @Retryable and @Recover annotations to work via AOP
-	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	// Spring Retry is no longer version-managed here; use an explicit version
+	implementation 'org.springframework.retry:spring-retry:2.0.12'
+	// AOP support for @Retryable proxies
+	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 
 	compileOnly 'org.projectlombok:lombok:1.18.44'
 	annotationProcessor 'org.projectlombok:lombok:1.18.44'
