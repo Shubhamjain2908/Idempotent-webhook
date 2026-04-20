@@ -16,6 +16,19 @@ public class JdbcIdempotencyStore implements IdempotencyStore {
   private final JdbcClient jdbcClient;
 
   @Override
+  public boolean acquireAdvisoryLock(String key) {
+    // pg_try_advisory_xact_lock acquires a transaction-level lock.
+    // It returns TRUE if it got the lock, FALSE if someone else holds it.
+    // The '_xact_' part means the lock is automatically released when the transaction ends!
+    String sql = "SELECT pg_try_advisory_xact_lock(hashtext(:key))";
+
+    return jdbcClient.sql(sql)
+        .param("key", key)
+        .query(Boolean.class)
+        .single(); // Returns the boolean result directly
+  }
+
+  @Override
   public Optional<ProcessedEvent> findByKey(String idempotencyKey) {
     String sql = "SELECT * FROM processed_events WHERE idempotency_key = :key";
     return jdbcClient.sql(sql).param("key", idempotencyKey).query(this::mapRow).optional();
