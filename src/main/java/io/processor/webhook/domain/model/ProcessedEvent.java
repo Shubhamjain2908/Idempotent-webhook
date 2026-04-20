@@ -12,5 +12,5 @@ public class ProcessedEvent {
   String resultJson;
   EventStatus status;
   Instant createdAt;
-  Instant updatedAt;
+  Instant expiresAt;
 }
