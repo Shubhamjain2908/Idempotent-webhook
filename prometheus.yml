@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s # Scrape every 5 seconds for real-time observability
+
+scrape_configs:
+  - job_name: 'webhook-processor'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      # Points to your Spring Boot application running on your local machine
+      - targets: ['host.docker.internal:8080']

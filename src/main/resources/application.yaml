@@ -6,3 +6,14 @@ spring:
     username: webhook_user
     password: webhook_password
     driver-class-name: org.postgresql.Driver
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        # This tells Micrometer to calculate P95/P99 percentiles for our specific timer
+        webhook.idempotency.check: true
