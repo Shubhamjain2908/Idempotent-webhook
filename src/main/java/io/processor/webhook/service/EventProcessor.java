@@ -4,10 +4,12 @@ import io.processor.webhook.exception.TerminalProcessingException;
 import io.processor.webhook.exception.TransientProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 public class EventProcessor {
 
   private final DLQHandler dlqHandler;
+  private final JdbcClient jdbcClient;
 
   /**
    * @Retryable automatically intercepts exceptions. maxAttempts = 3: Initial try + 2 retries.
@@ -51,5 +54,27 @@ public class EventProcessor {
     dlqHandler.saveToDLQ(idempotencyKey, eventType, payload, e.getMessage(), 3);
     // Rethrow or handle so the IdempotencyGuard knows to mark the main event as FAILED
     throw new TerminalProcessingException("Event sent to DLQ", e);
+  }
+
+  @Transactional
+  public void processAndEmit(String idempotencyKey, String eventType, String payload) {
+
+    // 1. DO THE BUSINESS LOGIC
+    // e.g., UPDATE users SET status = 'ACTIVE' WHERE ...
+    log.info("Executing core business state changes for {}", idempotencyKey);
+
+    // 2. WRITE TO THE OUTBOX
+    String sql = """
+            INSERT INTO outbox_events (aggregate_type, aggregate_id, payload, published)
+            VALUES (:type, :id, :payload::jsonb, false)
+            """;
+
+    jdbcClient.sql(sql)
+        .param("type", eventType + "-topic")
+        .param("id", idempotencyKey)
+        .param("payload", payload)
+        .update();
+
+    log.info("Safely written to outbox.");
   }
 }
